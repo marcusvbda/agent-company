@@ -1,20 +1,27 @@
+class Message:
+    def __init__(self, sender: str, recipient: str, task: str):
+        self.sender = sender
+        self.recipient = recipient
+        self.task = task
 class Agent:
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
         
-    def execute(self, task):
+    def execute(self, task: str) -> str:
         return f"{self.name} is executing: {task}"
     
-    def delegate(self, agent, task):
-        return agent.execute(task)
+    def delegate(self, agent: "Agent", message: Message) -> str:
+        return agent.execute(message.task)
     
 
 manager = Agent("Manager")
 writer = Agent("Writer")
-designer = Agent("Designer")
 
-resultWriter = manager.delegate(writer, "Write an Instagram post about Python")
-resultDesigner = manager.delegate(designer, "Create an image to an Instagram post about Python")
+message_writer = Message(
+    manager.name,
+    writer.name,
+    "Write an Instagram post about Python"
+)
 
-print(resultWriter)
-print(resultDesigner)
+result_writer = manager.delegate(writer, message_writer)
+print(result_writer)
