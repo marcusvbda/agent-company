@@ -1,18 +1,5 @@
-class Message:
-    def __init__(self, sender: str, recipient: str, task: str):
-        self.sender = sender
-        self.recipient = recipient
-        self.task = task
-class Agent:
-    def __init__(self, name: str):
-        self.name = name
-        
-    def execute(self, task: str) -> str:
-        return f"{self.name} is executing: {task}"
-    
-    def delegate(self, agent: "Agent", message: Message) -> str:
-        return agent.execute(message.task)
-    
+from classes.message import Message
+from classes.agent import Agent
 
 manager = Agent("Manager")
 writer = Agent("Writer")
