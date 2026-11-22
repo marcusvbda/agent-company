@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from ..repositories.sector import SectorRepository
+from ..repositories.sector_repository import SectorRepository
 
 router = APIRouter()
 
