@@ -6,13 +6,13 @@ from pydantic import BaseModel
 from .base import Response
 
 EventType = Literal[
-    "run_started",  # content: the user's request
+    "run_started",
     "orchestrator_thinking",
-    "delegated",  # agent + content: the task the orchestrator sent
-    "agent_working",  # agent: started working on it
-    "agent_replied",  # agent + content: its result (+ workspace with its files)
-    "final",  # content: the deliverable (ends the stream)
-    "error",  # content: what went wrong (ends the stream)
+    "delegated",
+    "agent_working",
+    "agent_replied",
+    "final",
+    "error",
 ]
 
 
@@ -30,7 +30,6 @@ class RunResponse(Response):
     events: list[RunEvent]
 
 
-# What the orchestrator model must answer (validated, not trusted).
 class Delegation(BaseModel):
     agent_id: str
     prompt: str

@@ -8,8 +8,6 @@ TERMINAL = ("final", "error")
 
 
 class Run:
-    """One orchestrator execution: its events, kept so late readers can replay them."""
-
     def __init__(self, prompt: str):
         self.id: str = str(uuid4())
         self.prompt = prompt
@@ -32,11 +30,12 @@ class Run:
             self._changed.notify_all()
 
     async def subscribe(self, start: int = 0) -> AsyncIterator[tuple[int, RunEvent]]:
-        """Yield (index, event) from `start`, waiting for new ones until the run ends."""
         i = start
         while True:
             async with self._changed:
-                await self._changed.wait_for(lambda: i < len(self.events) or self.finished)
+                await self._changed.wait_for(
+                    lambda: i < len(self.events) or self.finished
+                )
             if i >= len(self.events):
                 return
             yield i, self.events[i]

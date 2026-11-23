@@ -6,13 +6,11 @@ from ..model.agent import Agent
 from ..providers.base import SYSTEM_PROMPT, WORKSPACES_DIR
 from ..providers.claude_provider import ClaudeProvider
 from ..repositories.agent_repository import AgentRepository
-from ..repositories.sector_repository import SectorRepository
 from ..schemas.agent import AgentResponse, CreateAgent, ExecuteResponse, PromptRequest
 
 router = APIRouter(prefix="/agents", tags=["Agents"])
 
 AgentsRepoDep = Annotated[AgentRepository, Depends()]
-SectorsRepoDep = Annotated[SectorRepository, Depends()]
 
 
 @router.get("/")
@@ -21,20 +19,14 @@ async def get_all(repository: AgentsRepoDep) -> list[AgentResponse]:
 
 
 @router.post("/", status_code=201)
-async def create(
-    repository: AgentsRepoDep, sectors: SectorsRepoDep, body: CreateAgent
-) -> AgentResponse:
-    sector = sectors.find(body.sector_id)
-    if sector is None:
-        raise HTTPException(status_code=404, detail="Sector not found")
+async def create(repository: AgentsRepoDep, body: CreateAgent) -> AgentResponse:
     provider = ClaudeProvider(
         model=body.model,
         effort=body.effort,
         system_prompt=f"{SYSTEM_PROMPT}\n\nYou are {body.name}. {body.instructions}",
     )
-    agent = Agent(body.name, provider, sector.id, body.instructions)
+    agent = Agent(body.name, provider, body.instructions)
     provider.workspace = (WORKSPACES_DIR / agent.id).resolve()
-    sector.agents.append(agent)
     return repository.add(agent)
 
 

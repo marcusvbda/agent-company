@@ -5,15 +5,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ..model.run import Run
+from ..repositories.agent_repository import AgentRepository
 from ..repositories.run_repository import RunRepository
-from ..repositories.sector_repository import SectorRepository
 from ..schemas.agent import PromptRequest
 from ..schemas.orchestrator import RunResponse
 from ..services.orchestrator import execute_run
 
 router = APIRouter(prefix="/orchestrator", tags=["Orchestrator"])
 
-SectorsRepoDep = Annotated[SectorRepository, Depends()]
+AgentsRepoDep = Annotated[AgentRepository, Depends()]
 RunsRepoDep = Annotated[RunRepository, Depends()]
 
 
@@ -26,14 +26,14 @@ def find_run(runs: RunRepository, id: str) -> Run:
 
 @router.post("", status_code=202)
 async def start(
-    sectors: SectorsRepoDep,
+    agents: AgentsRepoDep,
     runs: RunsRepoDep,
     background: BackgroundTasks,
     body: PromptRequest,
 ) -> RunResponse:
     """Starts the work and answers right away; follow it on /runs/{id}/events."""
     run = runs.add(Run(body.prompt))
-    background.add_task(execute_run, run, sectors.get())
+    background.add_task(execute_run, run, agents.get())
     return run
 
 
@@ -48,11 +48,6 @@ async def stream_events(
     id: str,
     last_event_id: Annotated[int | None, Header()] = None,
 ) -> StreamingResponse:
-    """Server-Sent Events. Replays what already happened, then follows live.
-
-    The browser's EventSource resends `Last-Event-ID` when it reconnects, so it
-    resumes where it stopped. The front must close the stream on final/error.
-    """
     run = find_run(runs, id)
     start = 0 if last_event_id is None else last_event_id + 1
 

@@ -1,14 +1,9 @@
 from fastapi import FastAPI
 
-from .api import agents, orchestrator, sectors
+from .api import agents, orchestrator
 
 app = FastAPI()
 
 
-@app.get("/")
-async def CheckHealth():
-    return "Ok"
-
-
-for module in (agents, orchestrator, sectors):
+for module in (agents, orchestrator):
     app.include_router(module.router)

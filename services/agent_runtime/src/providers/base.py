@@ -27,8 +27,8 @@ class BaseProvider:
     ):
         self.name = name
         self.workspace = Path(workspace or WORKSPACES_DIR / name).resolve()
-        self.model = model  # None = the account's default model
-        self.effort = effort  # None = the model's default effort
+        self.model = model
+        self.effort = effort
         self.system_prompt = system_prompt
 
     async def execute(self, prompt: str) -> str:
@@ -37,7 +37,6 @@ class BaseProvider:
     async def _run_cli(
         self, args: list[str], prompt: str, env: dict[str, str] | None = None
     ) -> tuple[int, bytes, bytes]:
-        """Run a provider's CLI inside the workspace, prompt on stdin."""
         self.workspace.mkdir(parents=True, exist_ok=True)
         process = await asyncio.create_subprocess_exec(
             *args,

@@ -3,7 +3,6 @@ from collections.abc import Awaitable, Callable
 
 from ..model.agent import Agent
 from ..model.run import Run
-from ..model.sector import Sector
 from ..providers.claude_provider import ClaudeProvider
 from ..schemas.orchestrator import Decision, Delegation, RunEvent
 
@@ -44,7 +43,6 @@ def _parse(reply: str) -> Decision | None:
 
 
 async def _delegate(agents: dict[str, Agent], task: Delegation, emit: Emit) -> str:
-    """Run one delegated task, emitting its events. Returns its line for the transcript."""
     agent = agents.get(task.agent_id)
     if agent is None:
         result = "ERROR: unknown agent_id"
@@ -68,14 +66,10 @@ async def _delegate(agents: dict[str, Agent], task: Delegation, emit: Emit) -> s
     return f"[{agent.name}] task: {task.prompt}\nresult: {result}"
 
 
-async def run_orchestrator(request: str, sectors: list[Sector], emit: Emit) -> None:
-    agents = {a.id: a for s in sectors for a in s.agents}
+async def run_orchestrator(request: str, agents: list[Agent], emit: Emit) -> None:
+    by_id = {a.id: a for a in agents}
     roster = (
-        "\n".join(
-            f"- id={a.id} | {a.name} | sector: {s.name} | {a.instructions}"
-            for s in sectors
-            for a in s.agents
-        )
+        "\n".join(f"- id={a.id} | {a.name} | {a.instructions}" for a in agents)
         or "(no agents yet)"
     )
 
@@ -89,21 +83,19 @@ async def run_orchestrator(request: str, sectors: list[Sector], emit: Emit) -> N
         )
         decision = _parse(reply)
         if decision is None or not decision.delegate:
-            # Not a delegation: whatever it said is the deliverable.
             final = decision.final if decision and decision.final else reply
             await emit(RunEvent(type="final", content=final))
             return
         transcript += await asyncio.gather(
-            *(_delegate(agents, t, emit) for t in decision.delegate)
+            *(_delegate(by_id, t, emit) for t in decision.delegate)
         )
 
     raise RuntimeError(f"Orchestrator did not finish in {MAX_STEPS} steps")
 
 
-async def execute_run(run: Run, sectors: list[Sector]) -> None:
-    """Background entry point: it must always end the run's stream (final or error)."""
+async def execute_run(run: Run, agents: list[Agent]) -> None:
     await run.publish(RunEvent(type="run_started", content=run.prompt))
     try:
-        await run_orchestrator(run.prompt, sectors, run.publish)
+        await run_orchestrator(run.prompt, agents, run.publish)
     except Exception as e:
         await run.publish(RunEvent(type="error", content=str(e)))
