@@ -25,6 +25,6 @@ async def find_one(repository: AgentsRepoDep, id: str):
 
 
 @router.get("/test/")
-async def test_execute(repository: AgentsRepoDep):
+async def test_execute():
     agent = Agent("Mark", ClaudeProvider())
     return await agent.provider.execute("Say Hello")
