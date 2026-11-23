@@ -12,5 +12,9 @@ class BaseRepository[T: HasId]:
     def get(self) -> list[T]:
         return list(self.items)
 
+    def add(self, item: T) -> T:
+        self.items.append(item)
+        return item
+
     def find(self, id: str) -> T | None:
         return next((item for item in self.items if item.id == id), None)
