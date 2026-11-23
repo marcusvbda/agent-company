@@ -1,9 +1,11 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 
 from ..model.agent import Agent
+from ..model.run import Run
 from ..model.sector import Sector
 from ..providers.claude_provider import ClaudeProvider
-from ..schemas.orchestrator import Decision, Delegation, OrchestratorResponse, Step
+from ..schemas.orchestrator import Decision, Delegation, RunEvent
 
 MAX_STEPS = 6
 
@@ -29,6 +31,8 @@ orchestrator = Agent(
     "Orchestrator", ClaudeProvider("orchestrator", system_prompt=SYSTEM_PROMPT)
 )
 
+Emit = Callable[[RunEvent], Awaitable[None]]
+
 
 def _parse(reply: str) -> Decision | None:
     try:
@@ -39,23 +43,32 @@ def _parse(reply: str) -> Decision | None:
         return None
 
 
-async def _delegate(agents: dict[str, Agent], task: Delegation) -> Step:
+async def _delegate(agents: dict[str, Agent], task: Delegation, emit: Emit) -> str:
+    """Run one delegated task, emitting its events. Returns its line for the transcript."""
     agent = agents.get(task.agent_id)
     if agent is None:
-        return Step(agent=None, task=task.prompt, result="ERROR: unknown agent_id")
+        result = "ERROR: unknown agent_id"
+        await emit(RunEvent(type="agent_replied", content=result))
+        return f"[unknown agent] task: {task.prompt}\nresult: {result}"
+
+    await emit(RunEvent(type="delegated", agent=agent.name, content=task.prompt))
+    await emit(RunEvent(type="agent_working", agent=agent.name))
     try:
         result = await agent.provider.execute(task.prompt)
     except RuntimeError as e:
         result = f"ERROR: {e}"
-    return Step(
-        agent=agent.name,
-        workspace=agent.provider.workspace,
-        task=task.prompt,
-        result=result,
+    await emit(
+        RunEvent(
+            type="agent_replied",
+            agent=agent.name,
+            content=result,
+            workspace=agent.provider.workspace,
+        )
     )
+    return f"[{agent.name}] task: {task.prompt}\nresult: {result}"
 
 
-async def run_orchestrator(request: str, sectors: list[Sector]) -> OrchestratorResponse:
+async def run_orchestrator(request: str, sectors: list[Sector], emit: Emit) -> None:
     agents = {a.id: a for s in sectors for a in s.agents}
     roster = (
         "\n".join(
@@ -66,25 +79,31 @@ async def run_orchestrator(request: str, sectors: list[Sector]) -> OrchestratorR
         or "(no agents yet)"
     )
 
-    steps: list[Step] = []
+    transcript: list[str] = []
     for _ in range(MAX_STEPS):
-        work = (
-            "\n\n".join(
-                f"[{s.agent}] task: {s.task}\nresult: {s.result}" for s in steps
-            )
-            or "(nothing yet)"
-        )
+        await emit(RunEvent(type="orchestrator_thinking"))
         reply = await orchestrator.provider.execute(
             f"USER REQUEST:\n{request}\n\nAGENTS:\n{roster}\n\n"
-            f"WORK SO FAR:\n{work}\n\nReply with the JSON for your next move."
+            f"WORK SO FAR:\n{chr(10).join(transcript) or '(nothing yet)'}\n\n"
+            "Reply with the JSON for your next move."
         )
         decision = _parse(reply)
         if decision is None or not decision.delegate:
             # Not a delegation: whatever it said is the deliverable.
             final = decision.final if decision and decision.final else reply
-            return OrchestratorResponse(result=final, steps=steps)
-        steps += await asyncio.gather(
-            *(_delegate(agents, t) for t in decision.delegate)
+            await emit(RunEvent(type="final", content=final))
+            return
+        transcript += await asyncio.gather(
+            *(_delegate(agents, t, emit) for t in decision.delegate)
         )
 
     raise RuntimeError(f"Orchestrator did not finish in {MAX_STEPS} steps")
+
+
+async def execute_run(run: Run, sectors: list[Sector]) -> None:
+    """Background entry point: it must always end the run's stream (final or error)."""
+    await run.publish(RunEvent(type="run_started", content=run.prompt))
+    try:
+        await run_orchestrator(run.prompt, sectors, run.publish)
+    except Exception as e:
+        await run.publish(RunEvent(type="error", content=str(e)))
