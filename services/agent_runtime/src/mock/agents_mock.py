@@ -1,7 +1,7 @@
 from ..model.agent import Agent
-from ..providers.chatgpt import ChatGPTProvider
+from ..providers.claude_provider import ClaudeProvider
 
 MOCK = [
-    Agent("Mark", ChatGPTProvider()),
-    Agent("Nina", ChatGPTProvider()),
+    Agent("Mark", ClaudeProvider()),
+    Agent("Nina", ClaudeProvider()),
 ]
