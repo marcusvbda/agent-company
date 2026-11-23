@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends
-
 from ..repositories.sector_repository import SectorRepository
+from .base import BaseAPI
 
-router = APIRouter()
+
+class SectorsAPI(BaseAPI):
+    def __init__(self):
+        super().__init__(SectorRepository, "Sector")
 
 
-@router.get("/")
-async def get_sectors(repository: SectorRepository = Depends()):
-    return repository.get_all()
+router = SectorsAPI().router

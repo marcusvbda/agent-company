@@ -1,8 +1,8 @@
+from ..mock.agents_mock import MOCK as agents_mock
 from ..model.agent import Agent
+from .base import BaseRepository
 
-class AgentRepository:
+
+class AgentRepository(BaseRepository[Agent]):
     def __init__(self):
-        self.agents: list[Agent] = []
-
-    def get_all(self):
-        return self.agents
+        super().__init__(agents_mock)

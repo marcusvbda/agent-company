@@ -1,19 +1,8 @@
+from ..mock.sectors_mock import MOCK as mock_sectors
 from ..model.sector import Sector
-from ..model.agent import Agent
+from .base import BaseRepository
 
 
-class SectorRepository:
+class SectorRepository(BaseRepository[Sector]):
     def __init__(self):
-        self.sectors: list[Sector] = [
-            Sector("Designer",[
-                Agent("Mark"),
-                Agent("Nina"),
-            ]),
-            Sector("Social Media",[
-                Agent("Ana"),
-            ])
-        ]
-
-    def get_all(self):
-        return self.sectors
-    
+        super().__init__(mock_sectors)
